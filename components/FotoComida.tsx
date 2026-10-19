@@ -4,8 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { diaSemana, MENU } from "@/lib/plan";
 import { analizar, Analisis, comprimir, ErrorApi, miniatura, nuevoId, Registro, Slot } from "./api";
 import { IcX } from "./Icons";
-import Selector, { Plato, resumenPlato } from "./Selector";
-import { Alimento, ALIMENTOS } from "@/lib/alimentos";
+import Selector, { catalogo, Plato, resumenPlato } from "./Selector";
+import type { Alimento } from "@/lib/alimentos";
 
 const SLOTS: { id: Slot; nombre: string }[] = [
   { id: "desayuno", nombre: "Desayuno" },
@@ -54,7 +54,12 @@ export default function FotoComida({
   const [nota, setNota] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [plato, setPlato] = useState<Plato>({});
-  const todos = useMemo(() => [...propios, ...ALIMENTOS], [propios]);
+  const planItem = useMemo((): Alimento | undefined => {
+    const c = MENU[diaSemana(fecha)].find((m) => m.id === slot);
+    if (!c) return undefined;
+    return { id: `plan-${slot}`, nombre: `${c.nombre} del plan`, porcion: c.texto.split(". Plan B")[0].replace(/\.$/, ""), kcal: c.kcal, prot: c.prot, cat: "Lo del plan" };
+  }, [fecha, slot]);
+  const todos = useMemo(() => catalogo(propios, planItem), [propios, planItem]);
   const resumen = resumenPlato(plato, todos);
   const iniciado = useRef(false);
 
@@ -143,7 +148,7 @@ export default function FotoComida({
   }
 
   const titulo =
-    fase === "resultado" ? "Revisa y guarda" : fase === "manual" ? "¿Qué comiste?" : fotosOn ? "Analizando…" : "Preparando…";
+    fase === "resultado" ? "Revisa y guarda" : fase === "manual" ? (file ? "¿Qué comiste?" : SLOTS.find((s) => s.id === slot)!.nombre) : fotosOn ? "Analizando…" : "Preparando…";
 
   return (
     <div className="scrim" onClick={onCerrar}>
@@ -273,6 +278,8 @@ export default function FotoComida({
         {fase === "manual" && (
           <>
             <Selector
+              slot={slot}
+              planItem={planItem}
               propios={propios}
               plato={plato}
               setPlato={setPlato}

@@ -1759,3 +1759,27 @@ button {
   font-size: 13px;
   color: var(--muted);
 }
+
+.meal-open {
+  background: none;
+  border: none;
+  padding: 0;
+  text-align: left;
+  color: inherit;
+  width: 100%;
+  display: grid;
+  gap: 2px;
+}
+
+.meal-cta {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--accent);
+  margin-top: 4px;
+}
+
+@media (prefers-color-scheme: dark) {
+  .meal-cta {
+    color: #9db0ff;
+  }
+}

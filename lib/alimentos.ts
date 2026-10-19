@@ -109,3 +109,66 @@ export const ALIMENTOS: Alimento[] = [
   a("Bebidas", "jugo", "Jugo de fruta", "1 vaso (250 ml)", 115, 1),
   a("Bebidas", "cafe-leche", "Café con leche y azúcar", "1 taza", 90, 3),
 ];
+
+// Ejemplos típicos por comida: platos completos, listos para un toque.
+const t = (slot: string, id: string, nombre: string, porcion: string, kcal: number, prot: number): Alimento => ({
+  id: `t-${id}`,
+  nombre,
+  porcion,
+  kcal,
+  prot,
+  cat: `Típicos ${slot}`,
+});
+
+export const TIPICOS: Record<string, Alimento[]> = {
+  desayuno: [
+    t("de desayuno", "des-plan", "Plátano + yogur proteico + café cortado", "lo del plan", 260, 21),
+    t("de desayuno", "des-palta-huevo", "Marraqueta con palta y 2 huevos", "1 pan", 500, 22),
+    t("de desayuno", "des-jamon-queso", "Marraqueta con jamón y queso", "1 pan", 420, 22),
+    t("de desayuno", "des-avena", "Avena con leche y plátano", "1 taza", 380, 14),
+    t("de desayuno", "des-revueltos", "3 huevos revueltos con tostada", "1 plato", 330, 21),
+    t("de desayuno", "des-griego", "Yogur griego con granola y fruta", "1 pote", 330, 18),
+    t("de desayuno", "des-cafe-galletas", "Café con leche y galletas", "1 taza + 4", 290, 5),
+  ],
+  almuerzo: [
+    t("de almuerzo", "alm-casino", "Casino: pollo, arroz y ensalada", "1 bandeja", 650, 45),
+    t("de almuerzo", "alm-cazuela", "Cazuela de vacuno", "1 plato", 450, 30),
+    t("de almuerzo", "alm-porotos", "Porotos con riendas", "1 plato", 520, 22),
+    t("de almuerzo", "alm-lentejas", "Lentejas guisadas", "1 plato", 400, 22),
+    t("de almuerzo", "alm-charquican", "Charquicán con huevo frito", "1 plato", 520, 25),
+    t("de almuerzo", "alm-arroz-pollo", "Arroz con pollo al jugo", "1 plato", 600, 40),
+    t("de almuerzo", "alm-bolognesa", "Tallarines con salsa boloñesa", "1 plato", 700, 32),
+    t("de almuerzo", "alm-cesar", "Ensalada César con pollo", "1 plato", 550, 40),
+    t("de almuerzo", "alm-pescado-pure", "Pescado frito con puré", "1 plato", 750, 35),
+    t("de almuerzo", "alm-choclo", "Pastel de choclo", "1 greda", 750, 35),
+    t("de almuerzo", "alm-pobre", "Lomo a lo pobre", "1 plato", 1300, 60),
+  ],
+  colacion: [
+    t("de colación", "col-batido", "Batido whey + fruta + almendras", "lo del plan", 315, 28),
+    t("de colación", "col-yogur-fruta", "Yogur proteico + fruta", "1 + 1", 200, 16),
+    t("de colación", "col-barra", "Barra de proteína", "1 unidad", 200, 20),
+    t("de colación", "col-fruta-almendras", "Fruta + puñado de almendras", "1 + 20 g", 200, 5),
+    t("de colación", "col-sandwich-pavo", "Sándwich de pavo y quesillo", "pan de molde", 280, 22),
+    t("de colación", "col-cafe-galletas", "Café con leche y galletas", "1 taza + 4", 290, 5),
+  ],
+  comida: [
+    t("de once o comida", "com-once-palta", "Once: pan con palta y huevo + té", "1 pan", 450, 18),
+    t("de once o comida", "com-once-jq", "Once: pan con jamón y queso + té", "1 pan", 420, 22),
+    t("de once o comida", "com-once-doble", "Once: 2 panes con palta + té con azúcar", "2 panes", 700, 18),
+    t("de once o comida", "com-omelette", "Omelette con quesillo y verduras", "3 huevos", 380, 32),
+    t("de once o comida", "com-pollo-verduras", "Pollo con verduras salteadas", "1 plato", 450, 50),
+    t("de once o comida", "com-sopaipillas", "Sopaipillas", "3 unidades", 540, 9),
+    t("de once o comida", "com-completo", "Completo italiano + bebida zero", "1 completo", 480, 14),
+    t("de once o comida", "com-pizza", "Pizza con la polola", "3 trozos", 870, 36),
+    t("de once o comida", "com-sushi", "Sushi para compartir (tu parte)", "20 piezas", 1000, 32),
+  ],
+  extra: [
+    t("fuera del plan", "ext-cervezas", "2 schops", "2 × 500 ml", 440, 4),
+    t("fuera del plan", "ext-piscolas", "2 piscolas con zero", "2 vasos", 260, 0),
+    t("fuera del plan", "ext-chocolate", "Chocolate", "4 cuadritos", 135, 2),
+    t("fuera del plan", "ext-helado", "Helado", "2 bolas", 280, 4),
+    t("fuera del plan", "ext-papas", "Papas fritas de bolsa", "bolsa chica", 240, 3),
+  ],
+};
+
+export const TODOS_TIPICOS: Alimento[] = Object.values(TIPICOS).flat();

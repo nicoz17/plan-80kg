@@ -267,7 +267,6 @@ function Combustible({
   abrirFoto: AbrirFoto;
   borrarRegistro: (id: string) => void;
 }) {
-  const [abierto, setAbierto] = useState<string | null>(null);
   const comidas = MENU[diaSemana(fecha)];
   const { kcal, prot } = totalesDelDia(fecha, estado);
   const quedan = KCAL_META - kcal;
@@ -318,18 +317,22 @@ function Combustible({
             <li key={c.id} className={`meal ${marcado || regs.length ? "is-done" : ""}`}>
               <div className="meal-time">{c.hora.split("–")[0]}</div>
               <div>
-                <div className="meal-title">
-                  <span>{c.nombre}</span>
-                  {!regs.length && <span className="k">{c.kcal} kcal</span>}
-                </div>
-                {!regs.length && (
-                  <button className="meal-text-btn" onClick={() => setAbierto(abierto === c.id ? null : c.id)}>
-                    <span className={`meal-text ${abierto === c.id ? "open" : ""}`}>{c.texto}</span>
-                  </button>
-                )}
+                <button className="meal-open" onClick={() => abrirFoto(c.id as Slot, false)} aria-label={`Anotar ${c.nombre.toLowerCase()}`}>
+                  <span className="meal-title">
+                    <span>{c.nombre}</span>
+                    {!regs.length && <span className="k">{c.kcal} kcal</span>}
+                  </span>
+                  {!regs.length && <span className="meal-text">{c.texto}</span>}
+                  {!regs.length && !marcado && <span className="meal-cta">Anotar lo que comí</span>}
+                </button>
                 {regs.map((r) => (
                   <RegistroFila key={r.id} r={r} borrar={borrarRegistro} />
                 ))}
+                {regs.length > 0 && (
+                  <button className="textlink" style={{ marginTop: 6 }} onClick={() => abrirFoto(c.id as Slot, false)}>
+                    Agregar algo más
+                  </button>
+                )}
               </div>
               <div className="meal-actions">
                 {!regs.length && !marcado && (
@@ -371,7 +374,7 @@ function Combustible({
         Anotar algo fuera del plan
       </button>
       <p className="muted small" style={{ margin: "10px 2px 0" }}>
-        Check si comiste lo del plan. Foto si comiste otra cosa: se reemplaza por lo que fotografíes.
+        Check si comiste lo del plan. Toca una comida para elegir lo que comiste, o sácale una foto.
       </p>
     </section>
   );

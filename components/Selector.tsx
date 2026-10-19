@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Alimento, ALIMENTOS } from "@/lib/alimentos";
+import { Alimento, ALIMENTOS, TIPICOS, TODOS_TIPICOS } from "@/lib/alimentos";
 import { IcX } from "./Icons";
 
 export type Plato = Record<string, number>; // id → cantidad de porciones
@@ -10,11 +10,22 @@ const norm = (s: string) =>
   s
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "");
+    .replace(/[\u0300-\u036f]/g, "");
 
 const cant = (n: number) => (n === 0.5 ? "½" : Number.isInteger(n) ? String(n) : `${Math.floor(n)}½`);
 
+export function catalogo(propios: Alimento[], planItem?: Alimento): Alimento[] {
+  const vistos = new Set<string>();
+  return [...(planItem ? [planItem] : []), ...propios, ...TODOS_TIPICOS, ...ALIMENTOS].filter((a) => {
+    if (vistos.has(a.id)) return false;
+    vistos.add(a.id);
+    return true;
+  });
+}
+
 export default function Selector({
+  slot,
+  planItem,
   propios,
   plato,
   setPlato,
@@ -22,6 +33,8 @@ export default function Selector({
   onBorrarPropio,
   autoFocus,
 }: {
+  slot: string;
+  planItem?: Alimento;
   propios: Alimento[];
   plato: Plato;
   setPlato: (p: Plato) => void;
@@ -31,24 +44,33 @@ export default function Selector({
 }) {
   const [q, setQ] = useState("");
   const [creando, setCreando] = useState(false);
+  const [verTodo, setVerTodo] = useState(false);
   const [nuevo, setNuevo] = useState({ nombre: "", porcion: "", kcal: "", prot: "" });
 
-  const todos = useMemo(() => [...propios, ...ALIMENTOS], [propios]);
-  const visibles = useMemo(() => {
-    const t = norm(q.trim());
-    if (!t) return todos;
-    const palabras = t.split(/\s+/);
-    return todos.filter((a) => palabras.every((p) => norm(a.nombre).includes(p)));
-  }, [q, todos]);
+  const todos = useMemo(() => catalogo(propios, planItem), [propios, planItem]);
+  const buscando = q.trim().length > 0;
 
-  const grupos = useMemo(() => {
-    const m = new Map<string, Alimento[]>();
-    for (const a of visibles) {
-      if (!m.has(a.cat)) m.set(a.cat, []);
-      m.get(a.cat)!.push(a);
+  const grupos = useMemo((): [string, Alimento[]][] => {
+    const agrupar = (lista: Alimento[]) => {
+      const m = new Map<string, Alimento[]>();
+      for (const a of lista) {
+        if (!m.has(a.cat)) m.set(a.cat, []);
+        m.get(a.cat)!.push(a);
+      }
+      return [...m.entries()];
+    };
+    if (buscando) {
+      const palabras = norm(q.trim()).split(/\s+/);
+      return agrupar(todos.filter((a) => palabras.every((p) => norm(a.nombre).includes(p))));
     }
-    return [...m.entries()];
-  }, [visibles]);
+    const menu: [string, Alimento[]][] = [];
+    if (planItem) menu.push(["Lo del plan", [planItem]]);
+    if (TIPICOS[slot]?.length) menu.push([TIPICOS[slot][0].cat, TIPICOS[slot]]);
+    if (propios.length) menu.push(["Mis comidas", propios]);
+    if (!verTodo) return menu;
+    const yaEnMenu = new Set(menu.flatMap(([, l]) => l.map((a) => a.id)));
+    return [...menu, ...agrupar(ALIMENTOS.filter((a) => !yaEnMenu.has(a.id)))];
+  }, [buscando, q, todos, planItem, slot, propios, verTodo]);
 
   function cambiar(id: string, delta: number) {
     const n = Math.max(0, (plato[id] ?? 0) + delta);
@@ -79,7 +101,7 @@ export default function Selector({
       <input
         className="search"
         type="search"
-        placeholder="Buscar: marraqueta, completo, pollo…"
+        placeholder="Buscar: marraqueta, cazuela, completo…"
         value={q}
         onChange={(e) => setQ(e.target.value)}
         autoFocus={autoFocus}
@@ -137,6 +159,12 @@ export default function Selector({
           </ul>
         </div>
       ))}
+
+      {!buscando && !verTodo && (
+        <button className="btn" style={{ marginTop: 12 }} onClick={() => setVerTodo(true)}>
+          Ver todos los alimentos
+        </button>
+      )}
 
       {creando ? (
         <form className="create" onSubmit={crear}>
