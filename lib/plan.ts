@@ -86,25 +86,31 @@ export function metaDelDia(iso: string): number {
 
 export type Ejercicio = {
   nombre: string;
+  donde: string;
   series: string;
   descanso: string;
   alternativa: string;
 };
 
+// Implementos de Plaza Perú (Carmencita 130, Las Condes): barras de dominadas,
+// paralelas, pasamanos, espaldera, barras bajas de flexiones y banca de abdominales.
+export const LUGAR = "Plaza Perú · Carmencita 130";
+
 export const BARRAS_A: Ejercicio[] = [
-  { nombre: "Dominadas (agarre prono, ancho de hombros)", series: "4 × máx − 1", descanso: "2 min", alternativa: "Menos de 4: 4 × 4 negativas (saltas arriba, bajas en 5 seg)" },
-  { nombre: "Remo australiano en barra baja", series: "3 × 10–12", descanso: "90 seg", alternativa: "Cuerpo más vertical" },
-  { nombre: "Sentadilla búlgara (pie trasero en banco)", series: "3 × 10 por pierna", descanso: "90 seg", alternativa: "Zancada estática" },
-  { nombre: "Puente de glúteo a una pierna", series: "3 × 12 por pierna", descanso: "45 seg", alternativa: "A dos piernas" },
-  { nombre: "Elevación de rodillas colgado", series: "3 × 10–15", descanso: "60 seg", alternativa: "Rodillas a 90° en vez de al pecho" },
+  { nombre: "Dominadas (agarre prono, ancho de hombros)", donde: "Barra de dominadas", series: "4 × máx − 1", descanso: "2 min", alternativa: "Menos de 4: 4 × 4 negativas (saltas arriba, bajas en 5 seg)" },
+  { nombre: "Remo australiano", donde: "Paralelas: acostado debajo, entre las barras, tira el pecho hacia ellas (o la barra de dominadas más baja)", series: "3 × 10–12", descanso: "90 seg", alternativa: "Rodillas flectadas, pies más cerca" },
+  { nombre: "Sentadilla búlgara", donde: "Pie trasero sobre la banca de abdominales", series: "3 × 10 por pierna", descanso: "90 seg", alternativa: "Zancada estática en el suelo" },
+  { nombre: "Puente de glúteo a una pierna", donde: "Hombros apoyados en la banca", series: "3 × 12 por pierna", descanso: "45 seg", alternativa: "A dos piernas" },
+  { nombre: "Elevación de rodillas colgado", donde: "Espaldera, espalda apoyada", series: "3 × 10–15", descanso: "60 seg", alternativa: "Rodillas a 90° en vez de al pecho" },
+  { nombre: "Extra: cruzar el pasamanos", donde: "Pasamanos", series: "2 pasadas", descanso: "60 seg", alternativa: "Colgado 20 seg de un extremo" },
 ];
 
 export const BARRAS_B: Ejercicio[] = [
-  { nombre: "Fondos en paralelas", series: "4 × máx − 1", descanso: "2 min", alternativa: "Menos de 5: fondos en banco 3 × 12" },
-  { nombre: "Flexiones", series: "3 × 12–20", descanso: "90 seg", alternativa: "Manos en un banco" },
-  { nombre: "Pike push-ups (flexión en V)", series: "3 × 8–10", descanso: "90 seg", alternativa: "Menos inclinación" },
-  { nombre: "Zancada hacia atrás alternada", series: "3 × 12 por pierna", descanso: "60 seg", alternativa: "Agarrado de algo" },
-  { nombre: "Hollow hold + plancha lateral", series: "3 × 25 seg + 2 × 30 seg por lado", descanso: "45 seg", alternativa: "Rodillas flectadas" },
+  { nombre: "Fondos", donde: "Paralelas", series: "4 × máx − 1", descanso: "2 min", alternativa: "Menos de 5: fondos con manos en la banca, 3 × 12" },
+  { nombre: "Flexiones profundas", donde: "Barras bajas de flexiones", series: "3 × 12–20", descanso: "90 seg", alternativa: "Manos en la banca. Fácil: pies sobre la banca" },
+  { nombre: "Pike push-ups (flexión en V)", donde: "Pies sobre la banca, manos en el suelo", series: "3 × 8–10", descanso: "90 seg", alternativa: "Pies en el suelo" },
+  { nombre: "Zancada hacia atrás alternada", donde: "Junto a la espaldera", series: "3 × 12 por pierna", descanso: "60 seg", alternativa: "Agarrado de la espaldera" },
+  { nombre: "Hollow hold + plancha lateral", donde: "Suelo o banca", series: "3 × 25 seg + 2 × 30 seg por lado", descanso: "45 seg", alternativa: "Rodillas flectadas" },
 ];
 
 export const CALENTAMIENTO_BARRAS = [

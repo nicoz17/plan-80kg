@@ -11,6 +11,7 @@ import {
   fechaCorta,
   fechaLarga,
   KCAL_META,
+  LUGAR,
   lunesDe,
   MENU,
   METAS,
@@ -105,6 +106,7 @@ export default function Hoy({
         <h2>{sesion.titulo}</h2>
         <div className="meta-line">
           {sesion.duracion} · esfuerzo {sesion.esfuerzo}
+          {ejercicios && <> · {LUGAR}</>}
         </div>
 
         {sesion.detalle && <div className="big-detail">{sesion.detalle}</div>}
@@ -119,6 +121,7 @@ export default function Hoy({
               {ejercicios.map((e) => (
                 <li key={e.nombre}>
                   <span className="ej-nombre">{e.nombre}</span>
+                  <span className="ej-donde">{e.donde}</span>
                   <span className="ej-series">
                     <b>{e.series}</b> · descanso {e.descanso}
                   </span>

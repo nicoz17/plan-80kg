@@ -217,10 +217,16 @@ input {
   font-size: 13px;
   display: grid;
   place-items: center;
-  grid-row: span 3;
+  grid-row: span 4;
 }
 
 .ej-nombre {
+  font-weight: 600;
+}
+
+.ej-donde {
+  font-size: 13px;
+  color: var(--accent);
   font-weight: 600;
 }
 
