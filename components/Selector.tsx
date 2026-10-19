@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Alimento, ALIMENTOS, TIPICOS, TODOS_TIPICOS } from "@/lib/alimentos";
+import { Alimento, BASE, TIPICOS, TODOS_TIPICOS } from "@/lib/alimentos";
 import { IcX } from "./Icons";
 
 export type Plato = Record<string, number>; // id → cantidad de porciones
@@ -10,13 +10,14 @@ const norm = (s: string) =>
   s
     .toLowerCase()
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "");
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/yogh?urt/g, "yogur");
 
 const cant = (n: number) => (n === 0.5 ? "½" : Number.isInteger(n) ? String(n) : `${Math.floor(n)}½`);
 
 export function catalogo(propios: Alimento[], planItem?: Alimento): Alimento[] {
   const vistos = new Set<string>();
-  return [...(planItem ? [planItem] : []), ...propios, ...TODOS_TIPICOS, ...ALIMENTOS].filter((a) => {
+  return [...(planItem ? [planItem] : []), ...propios, ...TODOS_TIPICOS, ...BASE].filter((a) => {
     if (vistos.has(a.id)) return false;
     vistos.add(a.id);
     return true;
@@ -45,6 +46,7 @@ export default function Selector({
   const [q, setQ] = useState("");
   const [creando, setCreando] = useState(false);
   const [verTodo, setVerTodo] = useState(false);
+  const [cat, setCat] = useState<string | null>(null);
   const [nuevo, setNuevo] = useState({ nombre: "", porcion: "", kcal: "", prot: "" });
 
   const todos = useMemo(() => catalogo(propios, planItem), [propios, planItem]);
@@ -60,17 +62,33 @@ export default function Selector({
       return [...m.entries()];
     };
     if (buscando) {
-      const palabras = norm(q.trim()).split(/\s+/);
-      return agrupar(todos.filter((a) => palabras.every((p) => norm(a.nombre).includes(p))));
+      const t = norm(q.trim());
+      const palabras = t.split(/\s+/);
+      const hits = todos
+        .map((a) => ({ a, n: norm(a.nombre) }))
+        .filter(({ n }) => palabras.every((p) => n.includes(p)))
+        .map(({ a, n }) => ({
+          a,
+          score: (n.startsWith(t) ? 0 : n.includes(" " + palabras[0]) ? 1 : 2) + (a.cat.startsWith("Súper") ? 3 : 0),
+        }))
+        .sort((x, y) => x.score - y.score || x.a.nombre.length - y.a.nombre.length)
+        .slice(0, 80)
+        .map((x) => x.a);
+      return agrupar(hits);
     }
+    if (verTodo && cat) return [[cat, todos.filter((a) => a.cat === cat)]];
     const menu: [string, Alimento[]][] = [];
     if (planItem) menu.push(["Lo del plan", [planItem]]);
     if (TIPICOS[slot]?.length) menu.push([TIPICOS[slot][0].cat, TIPICOS[slot]]);
     if (propios.length) menu.push(["Mis comidas", propios]);
-    if (!verTodo) return menu;
-    const yaEnMenu = new Set(menu.flatMap(([, l]) => l.map((a) => a.id)));
-    return [...menu, ...agrupar(ALIMENTOS.filter((a) => !yaEnMenu.has(a.id)))];
-  }, [buscando, q, todos, planItem, slot, propios, verTodo]);
+    return verTodo ? [] : menu;
+  }, [buscando, q, todos, planItem, slot, propios, verTodo, cat]);
+
+  const categorias = useMemo(() => {
+    const m = new Map<string, number>();
+    for (const a of BASE) m.set(a.cat, (m.get(a.cat) ?? 0) + 1);
+    return [...m.entries()].sort((a, b) => Number(a[0].startsWith("Súper")) - Number(b[0].startsWith("Súper")));
+  }, []);
 
   function cambiar(id: string, delta: number) {
     const n = Math.max(0, (plato[id] ?? 0) + delta);
@@ -108,7 +126,27 @@ export default function Selector({
         aria-label="Buscar alimento"
       />
 
-      {grupos.length === 0 && !creando && (
+      {!buscando && verTodo && (
+        <div className="browse-h">
+          <button className="textlink" onClick={() => (cat ? setCat(null) : setVerTodo(false))}>
+            {cat ? "← Categorías" : "← Volver al menú"}
+          </button>
+          {!cat && <span className="muted small">{BASE.length.toLocaleString("es-CL")} alimentos</span>}
+        </div>
+      )}
+
+      {!buscando && verTodo && !cat && (
+        <div className="cats">
+          {categorias.map(([c, n]) => (
+            <button key={c} className="cat-btn" onClick={() => setCat(c)}>
+              <span>{c}</span>
+              <span className="num">{n}</span>
+            </button>
+          ))}
+        </div>
+      )}
+
+      {grupos.length === 0 && buscando && !creando && (
         <p className="muted small" style={{ margin: "14px 2px" }}>
           No está en la lista. Créalo abajo y queda guardado para la próxima.
         </p>
@@ -162,7 +200,7 @@ export default function Selector({
 
       {!buscando && !verTodo && (
         <button className="btn" style={{ marginTop: 12 }} onClick={() => setVerTodo(true)}>
-          Ver todos los alimentos
+          Explorar los {BASE.length.toLocaleString("es-CL")} alimentos por categoría
         </button>
       )}
 

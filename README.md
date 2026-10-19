@@ -34,3 +34,10 @@ Gratis: busca en la lista de alimentos (`lib/alimentos.ts`) o crea los tuyos des
 Para que la app calcule calorías desde una foto, agrega en Vercel la variable `ANTHROPIC_API_KEY`
 (se crea en [console.anthropic.com](https://console.anthropic.com), se paga por uso: unos pocos pesos por foto)
 y haz Redeploy. Sin la clave, la foto se guarda igual y anotas las calorías a mano.
+
+### Lista de alimentos
+
+- `lib/alimentos.ts`: básicos y típicos por comida.
+- `lib/genericos.ts`: ~400 alimentos y platos chilenos (valores aproximados).
+- `lib/productos.ts`: productos de supermercado en Chile, generado con `scripts/productos.py`
+  desde [Open Food Facts](https://world.openfoodfacts.org) (licencia ODbL).

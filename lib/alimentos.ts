@@ -1,3 +1,6 @@
+import { GENERICOS } from "./genericos";
+import { PRODUCTOS } from "./productos";
+
 // Lista de alimentos para anotar comidas sin gastar en IA.
 // Valores aproximados por la porción indicada. Agrega aquí lo que comas seguido.
 
@@ -172,3 +175,42 @@ export const TIPICOS: Record<string, Alimento[]> = {
 };
 
 export const TODOS_TIPICOS: Alimento[] = Object.values(TIPICOS).flat();
+
+const slug = (s: string) =>
+  s
+    .toLowerCase()
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-|-$/g, "")
+    .slice(0, 34);
+
+function desdeFilas(pref: string, filas: [string, string, string, number, number][]): Alimento[] {
+  const usados = new Set<string>();
+  return filas.map(([cat, nombre, porcion, kcal, prot]) => {
+    let id = `${pref}-${slug(nombre)}`;
+    for (let i = 2; usados.has(id); i++) id = `${pref}-${slug(nombre).slice(0, 30)}-${i}`;
+    usados.add(id);
+    return { id, nombre, porcion, kcal, prot, cat };
+  });
+}
+
+/** Todo el catálogo fijo: básicos + genéricos + productos de supermercado. */
+export const BASE: Alimento[] = (() => {
+  const vistos = new Set(ALIMENTOS.map((a) => a.nombre.toLowerCase()));
+  const extra = [...desdeFilas("g", GENERICOS), ...desdeFilas("s", PRODUCTOS)].filter((a) => {
+    const k = a.nombre.toLowerCase();
+    if (vistos.has(k)) return false;
+    vistos.add(k);
+    return true;
+  });
+  const MAPA: Record<string, string> = {
+    Proteínas: "Carnes",
+    Lácteos: "Huevos y lácteos",
+    Carbohidratos: "Arroz, pastas y papas",
+    "Frutas y verduras": "Frutas",
+    Snacks: "Dulces y snacks",
+    "Comida fuera": "Sándwiches y comida rápida",
+  };
+  return [...ALIMENTOS.map((a) => (MAPA[a.cat] ? { ...a, cat: MAPA[a.cat] } : a)), ...extra];
+})();

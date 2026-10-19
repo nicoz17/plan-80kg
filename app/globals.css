@@ -1783,3 +1783,38 @@ button {
     color: #9db0ff;
   }
 }
+
+.browse-h {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 10px;
+}
+
+.cats {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.cat-btn {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+  min-height: 56px;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: none;
+  background: var(--bg);
+  font-weight: 600;
+  font-size: 14px;
+  line-height: 1.2;
+}
+
+.cat-btn .num {
+  color: var(--muted);
+  font-size: 17px;
+}
