@@ -1,5 +1,7 @@
 "use client";
 
+import { IcCheck } from "./Icons";
+
 export function Check({
   on,
   onToggle,
@@ -27,13 +29,9 @@ export function Check({
       }}
     >
       <span className="box" aria-hidden="true">
-        {on && (
-          <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
-            <path d="M5 12l5 5 9-10" />
-          </svg>
-        )}
+        {on && <IcCheck className="ic" />}
       </span>
-      <div>{children}</div>
+      {children}
     </li>
   );
 }

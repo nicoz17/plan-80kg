@@ -1,16 +1,31 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
-import { cargar, enviar, ErrorApi, Estado, guardarPin, leerPin } from "./api";
+import { useCallback, useEffect, useRef, useState } from "react";
+import { cargar, enviar, ErrorApi, Estado, guardarFotos, guardarPin, leerFotos, leerPin, Registro, Slot } from "./api";
 import { hoySantiago, lunesDe } from "@/lib/plan";
 import Hoy from "./Hoy";
 import Peso from "./Peso";
 import Compras from "./Compras";
+import Guia from "./Guia";
 import PinScreen from "./PinScreen";
+import FotoComida from "./FotoComida";
+import { IcCam, IcCompras, IcGuia, IcHoy, IcPeso } from "./Icons";
 
-type Tab = "hoy" | "peso" | "compras";
+type Tab = "hoy" | "peso" | "compras" | "guia";
 
-const VACIO: Estado = { weights: {}, done: [], doneWeek: {}, shopping: [], memoria: false };
+const VACIO: Estado = { weights: {}, done: [], doneWeek: {}, shopping: [], log: [], memoria: false };
+
+export type AbrirFoto = (slot?: Slot, conCamara?: boolean) => void;
+
+export function slotPorHora(): Slot {
+  const h = Number(
+    new Intl.DateTimeFormat("en-US", { timeZone: "America/Santiago", hour: "numeric", hour12: false }).format(new Date()),
+  );
+  if (h < 11) return "desayuno";
+  if (h < 16) return "almuerzo";
+  if (h < 19) return "colacion";
+  return "comida";
+}
 
 export default function App() {
   const [pin, setPin] = useState<string | null>(null);
@@ -19,15 +34,19 @@ export default function App() {
   const [hoy, setHoy] = useState(hoySantiago());
   const [fecha, setFecha] = useState(hoy);
   const [estado, setEstado] = useState<Estado>(VACIO);
+  const [fotosOn, setFotosOn] = useState(false);
   const [cargando, setCargando] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
+  const [hoja, setHoja] = useState<{ slot: Slot; file: File | null } | null>(null);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const slotPendiente = useRef<Slot>("almuerzo");
 
   useEffect(() => {
     setPin(leerPin());
+    setFotosOn(leerFotos());
     setListo(true);
   }, []);
 
-  // Si la app queda abierta, actualizar "hoy" al volver
   useEffect(() => {
     const f = () => {
       if (document.visibilityState !== "visible") return;
@@ -64,7 +83,11 @@ export default function App() {
     if (!pin) return;
     setCargando(true);
     try {
-      setEstado(await cargar(pin, fecha, semana));
+      const e = await cargar(pin, fecha, semana);
+      setEstado(e);
+      const f = Boolean((e as Estado & { fotos?: boolean }).fotos);
+      setFotosOn(f);
+      guardarFotos(f);
     } catch (e) {
       manejarError(e);
     } finally {
@@ -87,8 +110,6 @@ export default function App() {
       />
     );
   }
-
-  // ----- Mutaciones optimistas -----
 
   async function marcar(id: string, on: boolean) {
     setEstado((s) => {
@@ -132,12 +153,46 @@ export default function App() {
     }
   }
 
+  async function registrar(entry: Omit<Registro, "creado">) {
+    const tmp: Registro = { ...entry, creado: new Date().toISOString() };
+    setEstado((s) => ({ ...s, log: [...s.log, tmp] }));
+    setHoja(null);
+    try {
+      await enviar(pin!, { action: "log-add", date: fecha, entry });
+      avisar("Comida registrada");
+    } catch (e) {
+      manejarError(e);
+      recargar();
+    }
+  }
+
+  async function borrarRegistro(id: string) {
+    setEstado((s) => ({ ...s, log: s.log.filter((r) => r.id !== id) }));
+    try {
+      await enviar(pin!, { action: "log-del", date: fecha, id });
+      avisar("Registro borrado");
+    } catch (e) {
+      manejarError(e);
+      recargar();
+    }
+  }
+
+  const abrirFoto: AbrirFoto = (slot, conCamara = true) => {
+    const s = slot ?? (fecha === hoy ? slotPorHora() : "almuerzo");
+    if (conCamara) {
+      slotPendiente.current = s;
+      fileRef.current?.click();
+    } else {
+      setHoja({ slot: s, file: null });
+    }
+  };
+
   return (
     <>
       <main className="app">
-        {estado.memoria && (
-          <div className="aviso">
-            Modo prueba: falta conectar la base de datos en Vercel, así que los datos se pueden perder.
+        {estado.memoria && !cargando && (
+          <div className="notice">
+            Modo prueba: la base de datos no está conectada, así que lo que anotes se puede perder.
           </div>
         )}
         {tab === "hoy" && (
@@ -148,34 +203,59 @@ export default function App() {
             estado={estado}
             cargando={cargando}
             marcar={marcar}
+            abrirFoto={abrirFoto}
+            borrarRegistro={borrarRegistro}
           />
         )}
         {tab === "peso" && <Peso hoy={hoy} estado={estado} guardarPeso={guardarPeso} />}
-        {tab === "compras" && <Compras fecha={hoy} estado={estado} comprar={comprar} semana={semana} />}
+        {tab === "compras" && <Compras semana={semana} estado={estado} comprar={comprar} />}
+        {tab === "guia" && <Guia fecha={hoy} />}
       </main>
 
-      {toast && <div className="toast">{toast}</div>}
+      <input
+        ref={fileRef}
+        type="file"
+        accept="image/*"
+        capture="environment"
+        hidden
+        onChange={(e) => {
+          const f = e.target.files?.[0];
+          e.target.value = "";
+          if (f) {
+            setTab("hoy");
+            setHoja({ slot: slotPendiente.current, file: f });
+          }
+        }}
+      />
+
+      {hoja && (
+        <FotoComida
+          pin={pin}
+          fecha={fecha}
+          slotInicial={hoja.slot}
+          file={hoja.file}
+          fotosOn={fotosOn}
+          onCerrar={() => setHoja(null)}
+          onGuardar={registrar}
+          onError={manejarError}
+        />
+      )}
+
+      {toast && (
+        <div className="toast" role="status">
+          {toast}
+        </div>
+      )}
 
       <nav className="tabbar" aria-label="Secciones">
         <div className="tabbar-inner">
-          <TabBtn activo={tab === "hoy"} onClick={() => setTab("hoy")} label="Hoy">
-            <path d="M4 12h3l2-5 4 10 2-5h5" />
-          </TabBtn>
-          <TabBtn activo={tab === "peso"} onClick={() => setTab("peso")} label="Peso">
-            <path d="M4 18 L9 12 L13 15 L20 6" />
-            <circle cx="20" cy="6" r="1.5" />
-          </TabBtn>
-          <TabBtn
-            activo={tab === "compras"}
-            onClick={() => {
-              setFecha(hoy);
-              setTab("compras");
-            }}
-            label="Compras"
-          >
-            <path d="M5 7h14l-1.5 10h-11z" />
-            <path d="M9 7a3 3 0 0 1 6 0" />
-          </TabBtn>
+          <TabBtn activo={tab === "hoy"} onClick={() => setTab("hoy")} label="Hoy" icon={<IcHoy />} />
+          <TabBtn activo={tab === "peso"} onClick={() => setTab("peso")} label="Peso" icon={<IcPeso />} />
+          <button className="fab" onClick={() => abrirFoto()} aria-label="Fotografiar comida">
+            <IcCam />
+          </button>
+          <TabBtn activo={tab === "compras"} onClick={() => setTab("compras")} label="Compras" icon={<IcCompras />} />
+          <TabBtn activo={tab === "guia"} onClick={() => setTab("guia")} label="Guía" icon={<IcGuia />} />
         </div>
       </nav>
     </>
@@ -186,18 +266,16 @@ function TabBtn({
   activo,
   onClick,
   label,
-  children,
+  icon,
 }: {
   activo: boolean;
   onClick: () => void;
   label: string;
-  children: React.ReactNode;
+  icon: React.ReactNode;
 }) {
   return (
     <button className={`tab ${activo ? "active" : ""}`} onClick={onClick} aria-current={activo ? "page" : undefined}>
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        {children}
-      </svg>
+      {icon}
       {label}
     </button>
   );

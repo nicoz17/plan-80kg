@@ -1,9 +1,10 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { BANDA_KG, fechaCorta, fechaLarga, lunesDe, metaDelDia, METAS, sumarDias } from "@/lib/plan";
+import { BANDA_KG, fechaCorta, fechaLarga, lunesDe, META_FINAL, metaDelDia, METAS, sumarDias } from "@/lib/plan";
 import { Estado } from "./api";
 import Grafico, { PuntoSemana } from "./Grafico";
+import { IcX } from "./Icons";
 
 const kgFmt = (v: number) => v.toFixed(1).replace(".", ",");
 
@@ -18,6 +19,7 @@ export default function Peso({
 }) {
   const [fecha, setFecha] = useState(hoy);
   const [kg, setKg] = useState("");
+  const [cambiarFecha, setCambiarFecha] = useState(false);
 
   const diarios = useMemo(
     () =>
@@ -39,32 +41,36 @@ export default function Peso({
       .sort((a, b) => a.domingo.localeCompare(b.domingo));
   }, [diarios]);
 
-  // Semana actual: promedio vs meta de esos mismos días
   const lunesHoy = lunesDe(hoy);
   const estaSemana = diarios.filter((d) => d.fecha >= lunesHoy && d.fecha <= sumarDias(lunesHoy, 6));
   const promSemana = estaSemana.length ? estaSemana.reduce((a, d) => a + d.kg, 0) / estaSemana.length : null;
   const metaSemana = estaSemana.length
     ? estaSemana.reduce((a, d) => a + metaDelDia(d.fecha), 0) / estaSemana.length
     : metaDelDia(hoy);
-  const ultimo = diarios.at(-1);
-  const referencia = semanales.at(-1)?.prom ?? ultimo?.kg;
-  const bajado = referencia !== undefined ? METAS[0] - referencia : null;
+
+  const actual = promSemana ?? semanales.at(-1)?.prom ?? diarios.at(-1)?.kg ?? null;
+  const bajado = actual !== null ? METAS[0] - actual : 0;
+  const faltan = actual !== null ? Math.max(0, actual - META_FINAL) : METAS[0] - META_FINAL;
+  const avance = Math.max(0, Math.min(1, bajado / (METAS[0] - META_FINAL)));
 
   let estadoTexto: { txt: string; warn: boolean } | null = null;
   if (promSemana !== null) {
     const diff = promSemana - metaSemana;
     if (Math.abs(diff) <= BANDA_KG) {
       estadoTexto = {
-        txt: `Vas bien: tu promedio está ${diff >= 0 ? kgFmt(diff) + " kg sobre" : kgFmt(-diff) + " kg bajo"} la meta, dentro del rango normal.`,
+        txt:
+          diff >= 0
+            ? `Vas bien. Estás ${kgFmt(diff)} kg sobre la meta, dentro del rango normal.`
+            : `Vas bien. Estás ${kgFmt(-diff)} kg bajo la meta.`,
         warn: false,
       };
     } else if (diff > 0) {
       estadoTexto = {
-        txt: `Estás ${kgFmt(diff)} kg sobre la meta. Si se repite la próxima semana: saca el arroz de la comida o suma 2.000 pasos diarios. Un ajuste a la vez.`,
+        txt: `Estás ${kgFmt(diff)} kg sobre la meta. Si se repite la próxima semana, saca el arroz de la comida o suma 2.000 pasos diarios. Un ajuste a la vez.`,
         warn: true,
       };
     } else {
-      estadoTexto = { txt: `Vas ${kgFmt(-diff)} kg adelantado. No aprietes más: mantén el plan como está.`, warn: false };
+      estadoTexto = { txt: `Vas ${kgFmt(-diff)} kg adelantado. No aprietes más: sigue el plan tal cual.`, warn: false };
     }
   }
 
@@ -74,92 +80,125 @@ export default function Peso({
     if (!Number.isFinite(v) || v < 30 || v > 250) return;
     guardarPeso(fecha, v);
     setKg("");
+    setFecha(hoy);
+    setCambiarFecha(false);
   }
 
   const yaHay = estado.weights[fecha];
 
   return (
     <>
-      <header className="top">
+      <header className="head">
         <div>
           <h1>Peso</h1>
-          <div className="sub">Pésate 3 veces por semana, en ayunas</div>
+          <div className="sub">En ayunas, 3 veces por semana</div>
         </div>
       </header>
 
-      <section className="card">
-        <form onSubmit={guardar}>
-          <div className="peso-form">
-            <div className="field">
-              <label htmlFor="fecha">Fecha</label>
-              <input id="fecha" type="date" value={fecha} max={hoy} onChange={(e) => setFecha(e.target.value || hoy)} />
+      <section className="scale" aria-label="Resumen de peso">
+        <div className="scale-top">
+          <div>
+            <div className="kg num">
+              {actual !== null ? kgFmt(actual) : "88,0"}
+              <small>kg</small>
             </div>
-            <div className="field">
-              <label htmlFor="kg">Peso (kg)</label>
-              <input
-                id="kg"
-                type="text"
-                inputMode="decimal"
-                placeholder={yaHay ? kgFmt(yaHay) : "87,4"}
-                value={kg}
-                onChange={(e) => setKg(e.target.value)}
-              />
+            <div className="cap">{promSemana !== null ? "Promedio de esta semana" : actual !== null ? "Último promedio" : "Peso inicial"}</div>
+          </div>
+          <div className="scale-side">
+            <div>
+              <div className="v num">{bajado >= 0 ? "−" : "+"}{kgFmt(Math.abs(bajado))}</div>
+              <div className="l">desde 88 kg</div>
+            </div>
+            <div>
+              <div className="v num">{kgFmt(faltan)}</div>
+              <div className="l">para llegar a 80</div>
             </div>
           </div>
-          <button className="btn primary" disabled={!kg}>
-            {yaHay ? "Reemplazar peso de ese día" : "Guardar peso"}
-          </button>
-        </form>
+        </div>
+        <div className="journey" aria-label={`${Math.round(avance * 100)}% del camino`}>
+          <div className="journey-bar">
+            <i style={{ width: `${avance * 100}%` }} />
+          </div>
+          <div className="journey-ends">
+            <span>88</span>
+            <span>80</span>
+          </div>
+        </div>
       </section>
 
       <section className="card">
-        <div className="stats">
-          <div className="stat">
-            <div className="sv">{ultimo ? kgFmt(ultimo.kg) : "—"}</div>
-            <div className="sl">Último{ultimo ? ` · ${fechaCorta(ultimo.fecha)}` : ""}</div>
+        <form onSubmit={guardar}>
+          <div className="entry">
+            <input
+              className="kg-input"
+              inputMode="decimal"
+              placeholder={yaHay ? kgFmt(yaHay) : "Tu peso"}
+              value={kg}
+              onChange={(e) => setKg(e.target.value.replace(/[^\d.,]/g, ""))}
+              aria-label="Peso en kilos"
+            />
+            <button className="btn primary" disabled={!kg}>
+              {yaHay ? "Reemplazar" : "Guardar"}
+            </button>
           </div>
-          <div className="stat">
-            <div className="sv">{promSemana !== null ? kgFmt(promSemana) : "—"}</div>
-            <div className="sl">Promedio semana · meta {kgFmt(metaSemana)}</div>
+          <div className="entry-date">
+            {cambiarFecha ? (
+              <>
+                <label htmlFor="f">Fecha</label>
+                <input id="f" type="date" value={fecha} max={hoy} onChange={(e) => setFecha(e.target.value || hoy)} />
+              </>
+            ) : (
+              <>
+                <span>{fecha === hoy ? "Para hoy" : fechaLarga(fecha)}</span>
+                <button type="button" className="textlink" onClick={() => setCambiarFecha(true)}>
+                  Otro día
+                </button>
+              </>
+            )}
           </div>
-          <div className="stat">
-            <div className="sv">{bajado !== null ? (bajado >= 0 ? "−" : "+") + kgFmt(Math.abs(bajado)) : "—"}</div>
-            <div className="sl">Desde 88 kg</div>
-          </div>
-        </div>
+        </form>
         {estadoTexto ? (
-          <div className={`estado ${estadoTexto.warn ? "warn" : ""}`}>{estadoTexto.txt}</div>
+          <div className={`status ${estadoTexto.warn ? "warn" : ""}`}>{estadoTexto.txt}</div>
         ) : (
-          <div className="note">Registra tu primer peso de la semana para ver cómo vas contra la meta.</div>
+          <p className="muted small" style={{ margin: "12px 0 0" }}>
+            Con tu primer peso de la semana te digo si vas bien contra la meta ({kgFmt(metaSemana)} kg).
+          </p>
         )}
       </section>
 
       <section className="card">
-        <div className="card-label">Tu peso contra la meta</div>
+        <div className="card-h">
+          <h3>Tu curva</h3>
+          <span className="aside">meta vs. real</span>
+        </div>
         <Grafico diarios={diarios} semanales={semanales} hoy={hoy} />
-        <div className="note">El peso diario varía hasta 1–2 kg por agua. Mira el promedio semanal (punto negro), no el día.</div>
+        <p className="muted small" style={{ margin: "10px 0 0" }}>
+          El peso de un día varía 1 a 2 kg por agua. Fíjate en el promedio semanal, no en el día.
+        </p>
       </section>
 
       {diarios.length > 0 && (
         <section className="card">
-          <div className="card-label">Registros</div>
-          <ul className="registros">
+          <div className="card-h">
+            <h3>Registros</h3>
+          </div>
+          <ul className="rows">
             {[...diarios]
               .reverse()
               .slice(0, 21)
               .map((d) => (
                 <li key={d.fecha}>
                   <span>{fechaLarga(d.fecha)}</span>
-                  <span>
-                    <b>{kgFmt(d.kg)} kg</b>
+                  <span style={{ display: "flex", alignItems: "center", gap: 4 }}>
+                    <span className="v">{kgFmt(d.kg)}</span>
                     <button
-                      className="borrar"
-                      aria-label={`Borrar ${fechaCorta(d.fecha)}`}
+                      className="x"
+                      aria-label={`Borrar el peso del ${fechaCorta(d.fecha)}`}
                       onClick={() => {
                         if (confirm(`¿Borrar el peso del ${fechaCorta(d.fecha)}?`)) guardarPeso(d.fecha, null);
                       }}
                     >
-                      Borrar
+                      <IcX />
                     </button>
                   </span>
                 </li>

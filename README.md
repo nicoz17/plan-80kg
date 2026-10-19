@@ -24,3 +24,9 @@ Sin base de datos la app funciona en modo prueba (los datos se pierden).
 npm install
 APP_PIN=1234 npm run dev
 ```
+
+## Fotos de comida (opcional)
+
+Para que la app calcule calorías desde una foto, agrega en Vercel la variable `ANTHROPIC_API_KEY`
+(se crea en [console.anthropic.com](https://console.anthropic.com), se paga por uso: unos pocos pesos por foto)
+y haz Redeploy. Sin la clave, la foto se guarda igual y anotas las calorías a mano.

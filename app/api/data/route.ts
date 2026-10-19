@@ -1,27 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
-import { timingSafeEqual } from "node:crypto";
+import { autorizado } from "@/lib/auth";
 import { hdel, hgetall, hset, smembers, sset, usandoMemoria } from "@/lib/store";
 
 export const dynamic = "force-dynamic";
 
 const FECHA = /^\d{4}-\d{2}-\d{2}$/;
 const ID = /^[a-z0-9-]{1,40}$/;
-
-function autorizado(req: NextRequest): NextResponse | null {
-  const pin = process.env.APP_PIN;
-  if (!pin) {
-    return NextResponse.json(
-      { error: "Falta configurar APP_PIN en las variables de entorno de Vercel." },
-      { status: 500 },
-    );
-  }
-  const dado = Buffer.from(req.headers.get("x-pin") ?? "");
-  const real = Buffer.from(pin);
-  if (dado.length !== real.length || !timingSafeEqual(dado, real)) {
-    return NextResponse.json({ error: "PIN incorrecto" }, { status: 401 });
-  }
-  return null;
-}
+const SLOTS = ["desayuno", "almuerzo", "colacion", "comida", "extra"];
 
 function sumarDias(iso: string, n: number): string {
   const [y, m, d] = iso.split("-").map(Number);
@@ -39,9 +24,10 @@ export async function GET(req: NextRequest) {
   }
 
   const dias = Array.from({ length: 7 }, (_, i) => sumarDias(week, i));
-  const [pesosRaw, shopping, ...doneDias] = await Promise.all([
+  const [pesosRaw, shopping, logRaw, ...doneDias] = await Promise.all([
     hgetall("weights"),
     smembers(`shop:${week}`),
+    hgetall(`log:${date}`),
     ...dias.map((d) => smembers(`done:${d}`)),
   ]);
 
@@ -52,7 +38,18 @@ export async function GET(req: NextRequest) {
   dias.forEach((d, i) => (doneWeek[d] = doneDias[i]));
   const done = doneWeek[date] ?? (await smembers(`done:${date}`));
 
-  return NextResponse.json({ weights, done, doneWeek, shopping, memoria: usandoMemoria });
+  const log = Object.values(logRaw)
+    .map((v) => {
+      try {
+        return JSON.parse(v);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => String(a.creado).localeCompare(String(b.creado)));
+
+  return NextResponse.json({ weights, done, doneWeek, shopping, log, memoria: usandoMemoria, fotos: Boolean(process.env.ANTHROPIC_API_KEY) });
 }
 
 export async function POST(req: NextRequest) {
@@ -68,7 +65,9 @@ export async function POST(req: NextRequest) {
 
   const { action } = body;
 
-  if (action === "check") return NextResponse.json({ ok: true, memoria: usandoMemoria });
+  if (action === "check") {
+    return NextResponse.json({ ok: true, memoria: usandoMemoria, fotos: Boolean(process.env.ANTHROPIC_API_KEY) });
+  }
 
   if (action === "weight") {
     const date = String(body.date ?? "");
@@ -92,6 +91,43 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
     }
     await sset(`${action === "done" ? "done" : "shop"}:${key}`, id, Boolean(body.on));
+    return NextResponse.json({ ok: true });
+  }
+
+  if (action === "log-add") {
+    const date = String(body.date ?? "");
+    const e = (body.entry ?? {}) as Record<string, unknown>;
+    const id = String(e.id ?? "");
+    const slot = String(e.slot ?? "");
+    const foto = typeof e.foto === "string" ? e.foto : "";
+    if (!FECHA.test(date) || !ID.test(id) || !SLOTS.includes(slot)) {
+      return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
+    }
+    if (foto && (!foto.startsWith("data:image/jpeg;base64,") || foto.length > 60000)) {
+      return NextResponse.json({ error: "Foto inválida" }, { status: 400 });
+    }
+    const num = (v: unknown, max: number) => Math.max(0, Math.min(max, Math.round(Number(v) || 0)));
+    const entry = {
+      id,
+      slot,
+      nombre: String(e.nombre ?? "Comida").slice(0, 80),
+      detalle: String(e.detalle ?? "").slice(0, 400),
+      kcal: num(e.kcal, 5000),
+      prot: num(e.prot, 400),
+      carbs: num(e.carbs, 800),
+      grasa: num(e.grasa, 400),
+      foto,
+      creado: new Date().toISOString(),
+    };
+    await hset(`log:${date}`, id, JSON.stringify(entry));
+    return NextResponse.json({ ok: true, entry });
+  }
+
+  if (action === "log-del") {
+    const date = String(body.date ?? "");
+    const id = String(body.id ?? "");
+    if (!FECHA.test(date) || !ID.test(id)) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
+    await hdel(`log:${date}`, id);
     return NextResponse.json({ ok: true });
   }
 

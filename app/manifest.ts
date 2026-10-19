@@ -7,8 +7,8 @@ export default function manifest(): MetadataRoute.Manifest {
     description: "Plan 88 → 80 kg",
     start_url: "/",
     display: "standalone",
-    background_color: "#f4f2ed",
-    theme_color: "#f4f2ed",
+    background_color: "#2541d8",
+    theme_color: "#2541d8",
     icons: [{ src: "/icon.svg", sizes: "any", type: "image/svg+xml" }],
   };
 }
