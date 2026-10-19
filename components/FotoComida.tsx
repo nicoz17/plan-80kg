@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { diaSemana, MENU } from "@/lib/plan";
 import { analizar, Analisis, comprimir, ErrorApi, miniatura, nuevoId, Registro, Slot } from "./api";
 import { IcX } from "./Icons";
+import Selector, { Plato, resumenPlato } from "./Selector";
+import { Alimento, ALIMENTOS } from "@/lib/alimentos";
 
 const SLOTS: { id: Slot; nombre: string }[] = [
   { id: "desayuno", nombre: "Desayuno" },
@@ -27,6 +29,9 @@ export default function FotoComida({
   onCerrar,
   onGuardar,
   onError,
+  propios,
+  onCrearAlimento,
+  onBorrarAlimento,
 }: {
   pin: string;
   fecha: string;
@@ -36,6 +41,9 @@ export default function FotoComida({
   onCerrar: () => void;
   onGuardar: (r: Omit<Registro, "creado">) => void;
   onError: (e: unknown) => void;
+  propios: Alimento[];
+  onCrearAlimento: (a: Alimento) => void;
+  onBorrarAlimento: (id: string) => void;
 }) {
   const [slot, setSlot] = useState<Slot>(slotInicial);
   const [fase, setFase] = useState<Fase>(file ? "preparando" : "manual");
@@ -45,7 +53,9 @@ export default function FotoComida({
   const [porcion, setPorcion] = useState(1);
   const [nota, setNota] = useState("");
   const [error, setError] = useState<string | null>(null);
-  const [manual, setManual] = useState({ nombre: "", kcal: "", prot: "" });
+  const [plato, setPlato] = useState<Plato>({});
+  const todos = useMemo(() => [...propios, ...ALIMENTOS], [propios]);
+  const resumen = resumenPlato(plato, todos);
   const iniciado = useRef(false);
 
   const planDe = (s: Slot) => MENU[diaSemana(fecha)].find((c) => c.id === s)?.texto;
@@ -111,29 +121,29 @@ export default function FotoComida({
     });
   }
 
-  function guardarManual(e: React.FormEvent) {
-    e.preventDefault();
-    const kcal = Number(manual.kcal);
-    if (!manual.nombre.trim() || !Number.isFinite(kcal) || kcal <= 0) return;
+  function guardarPlato() {
+    if (!resumen.items.length) return;
     onGuardar({
       id: nuevoId(),
       slot,
-      nombre: manual.nombre.trim(),
-      detalle: "",
-      kcal,
-      prot: Number(manual.prot) || 0,
+      nombre: resumen.nombre.slice(0, 80),
+      detalle: resumen.detalle.slice(0, 400),
+      kcal: resumen.kcal,
+      prot: resumen.prot,
       carbs: 0,
       grasa: 0,
       foto: thumb,
     });
   }
 
-  function corregir() {
-    if (res) setManual({ nombre: res.nombre, kcal: String(k(res.kcal)), prot: String(k(res.prot)) });
-    setFase("manual");
+  function crearAlimento(a: Omit<Alimento, "id" | "cat">) {
+    const nuevo: Alimento = { ...a, id: `f-${nuevoId().slice(2)}`, cat: "Mis comidas", propio: true };
+    onCrearAlimento(nuevo);
+    setPlato((p) => ({ ...p, [nuevo.id]: 1 }));
   }
 
-  const titulo = fase === "resultado" ? "Revisa y guarda" : fase === "manual" ? "Anotar comida" : "Analizando…";
+  const titulo =
+    fase === "resultado" ? "Revisa y guarda" : fase === "manual" ? "¿Qué comiste?" : fotosOn ? "Analizando…" : "Preparando…";
 
   return (
     <div className="scrim" onClick={onCerrar}>
@@ -147,7 +157,7 @@ export default function FotoComida({
         </div>
 
         {(foto || file) && (
-          <div className="photo">
+          <div className={`photo ${fase === "manual" ? "small" : ""}`}>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             {foto && <img src={foto} alt="Tu comida" />}
             {(fase === "preparando" || fase === "analizando") && (
@@ -253,63 +263,45 @@ export default function FotoComida({
               <button className="btn primary" onClick={guardarResultado}>
                 Guardar en {SLOTS.find((s) => s.id === slot)!.nombre.toLowerCase()}
               </button>
-              <button className="btn" onClick={corregir}>
-                Corregir valores
+              <button className="btn" onClick={() => setFase("manual")}>
+                Mejor elegir de mi lista
               </button>
             </div>
           </div>
         )}
 
         {fase === "manual" && (
-          <form onSubmit={guardarManual}>
-            {!fotosOn && file && !error && (
-              <div className="comment" style={{ marginTop: 14 }}>
-                El cálculo automático por foto no está activado todavía. Anota los valores y la foto queda guardada.
+          <>
+            <Selector
+              propios={propios}
+              plato={plato}
+              setPlato={setPlato}
+              onCrear={crearAlimento}
+              onBorrarPropio={onBorrarAlimento}
+              autoFocus={!file}
+            />
+            <div className="tray">
+              <div className="tray-sum">
+                {resumen.items.length ? (
+                  <>
+                    <span className="num tray-k">{resumen.kcal.toLocaleString("es-CL")}</span> kcal,{" "}
+                    <b>{resumen.prot}</b> g proteína
+                    <div className="tray-n">{resumen.items.length === 1 ? "1 alimento" : `${resumen.items.length} alimentos`}</div>
+                  </>
+                ) : (
+                  <span className="muted">Toca lo que comiste</span>
+                )}
               </div>
-            )}
-            <div className="field">
-              <label htmlFor="m-nombre">Qué comiste</label>
-              <input
-                id="m-nombre"
-                value={manual.nombre}
-                onChange={(e) => setManual({ ...manual, nombre: e.target.value })}
-                placeholder="Ej: 2 completos italianos"
-                autoFocus={!file}
-              />
-            </div>
-            <div className="field-row">
-              <div className="field">
-                <label htmlFor="m-kcal">Calorías</label>
-                <input
-                  id="m-kcal"
-                  inputMode="numeric"
-                  value={manual.kcal}
-                  onChange={(e) => setManual({ ...manual, kcal: e.target.value.replace(/\D/g, "") })}
-                  placeholder="650"
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="m-prot">Proteína (g)</label>
-                <input
-                  id="m-prot"
-                  inputMode="numeric"
-                  value={manual.prot}
-                  onChange={(e) => setManual({ ...manual, prot: e.target.value.replace(/\D/g, "") })}
-                  placeholder="25"
-                />
-              </div>
-            </div>
-            <div className="sheet-actions">
-              <button className="btn primary" disabled={!manual.nombre.trim() || !manual.kcal}>
-                Guardar en {SLOTS.find((s) => s.id === slot)!.nombre.toLowerCase()}
+              <button className="btn primary" style={{ width: "auto", padding: "0 18px" }} disabled={!resumen.items.length} onClick={guardarPlato}>
+                Guardar
               </button>
-              {foto && fotosOn && (
-                <button type="button" className="btn" onClick={() => correrAnalisis(foto, nota || undefined)}>
-                  Analizar la foto de nuevo
-                </button>
-              )}
             </div>
-          </form>
+            {foto && fotosOn && (
+              <button type="button" className="btn" style={{ marginTop: 8 }} onClick={() => correrAnalisis(foto, nota || undefined)}>
+                Analizar la foto con IA
+              </button>
+            )}
+          </>
         )}
       </div>
     </div>

@@ -25,7 +25,11 @@ npm install
 APP_PIN=1234 npm run dev
 ```
 
-## Fotos de comida (opcional)
+## Registrar comida
+
+Gratis: busca en la lista de alimentos (`lib/alimentos.ts`) o crea los tuyos desde la app.
+
+### Cálculo por foto con IA (opcional, pagado)
 
 Para que la app calcule calorías desde una foto, agrega en Vercel la variable `ANTHROPIC_API_KEY`
 (se crea en [console.anthropic.com](https://console.anthropic.com), se paga por uso: unos pocos pesos por foto)

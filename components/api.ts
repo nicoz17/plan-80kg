@@ -1,3 +1,5 @@
+import type { Alimento } from "@/lib/alimentos";
+
 export type Slot = "desayuno" | "almuerzo" | "colacion" | "comida" | "extra";
 
 export type Registro = {
@@ -19,6 +21,7 @@ export type Estado = {
   doneWeek: Record<string, string[]>;
   shopping: string[];
   log: Registro[];
+  foods: Alimento[];
   memoria: boolean;
 };
 

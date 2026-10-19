@@ -24,10 +24,11 @@ export async function GET(req: NextRequest) {
   }
 
   const dias = Array.from({ length: 7 }, (_, i) => sumarDias(week, i));
-  const [pesosRaw, shopping, logRaw, ...doneDias] = await Promise.all([
+  const [pesosRaw, shopping, logRaw, foodsRaw, ...doneDias] = await Promise.all([
     hgetall("weights"),
     smembers(`shop:${week}`),
     hgetall(`log:${date}`),
+    hgetall("foods"),
     ...dias.map((d) => smembers(`done:${d}`)),
   ]);
 
@@ -49,7 +50,18 @@ export async function GET(req: NextRequest) {
     .filter(Boolean)
     .sort((a, b) => String(a.creado).localeCompare(String(b.creado)));
 
-  return NextResponse.json({ weights, done, doneWeek, shopping, log, memoria: usandoMemoria, fotos: Boolean(process.env.ANTHROPIC_API_KEY) });
+  const foods = Object.values(foodsRaw)
+    .map((v) => {
+      try {
+        return JSON.parse(v);
+      } catch {
+        return null;
+      }
+    })
+    .filter(Boolean)
+    .sort((a, b) => String(a.nombre).localeCompare(String(b.nombre)));
+
+  return NextResponse.json({ weights, done, doneWeek, shopping, log, foods, memoria: usandoMemoria, fotos: Boolean(process.env.ANTHROPIC_API_KEY) });
 }
 
 export async function POST(req: NextRequest) {
@@ -121,6 +133,34 @@ export async function POST(req: NextRequest) {
     };
     await hset(`log:${date}`, id, JSON.stringify(entry));
     return NextResponse.json({ ok: true, entry });
+  }
+
+  if (action === "food-add") {
+    const f = (body.food ?? {}) as Record<string, unknown>;
+    const id = String(f.id ?? "");
+    const nombre = String(f.nombre ?? "").trim().slice(0, 60);
+    const kcal = Math.round(Number(f.kcal));
+    if (!ID.test(id) || !nombre || !Number.isFinite(kcal) || kcal <= 0 || kcal > 5000) {
+      return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
+    }
+    const food = {
+      id,
+      nombre,
+      porcion: String(f.porcion ?? "1 porción").slice(0, 40),
+      kcal,
+      prot: Math.max(0, Math.min(400, Math.round(Number(f.prot) || 0))),
+      cat: "Mis comidas",
+      propio: true,
+    };
+    await hset("foods", id, JSON.stringify(food));
+    return NextResponse.json({ ok: true, food });
+  }
+
+  if (action === "food-del") {
+    const id = String(body.id ?? "");
+    if (!ID.test(id)) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 });
+    await hdel("foods", id);
+    return NextResponse.json({ ok: true });
   }
 
   if (action === "log-del") {

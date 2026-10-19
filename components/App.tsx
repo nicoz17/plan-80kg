@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { cargar, enviar, ErrorApi, Estado, guardarFotos, guardarPin, leerFotos, leerPin, Registro, Slot } from "./api";
 import { hoySantiago, lunesDe } from "@/lib/plan";
+import type { Alimento } from "@/lib/alimentos";
 import Hoy from "./Hoy";
 import Peso from "./Peso";
 import Compras from "./Compras";
@@ -13,7 +14,7 @@ import { IcCam, IcCompras, IcGuia, IcHoy, IcPeso } from "./Icons";
 
 type Tab = "hoy" | "peso" | "compras" | "guia";
 
-const VACIO: Estado = { weights: {}, done: [], doneWeek: {}, shopping: [], log: [], memoria: false };
+const VACIO: Estado = { weights: {}, done: [], doneWeek: {}, shopping: [], log: [], foods: [], memoria: false };
 
 export type AbrirFoto = (slot?: Slot, conCamara?: boolean) => void;
 
@@ -177,6 +178,26 @@ export default function App() {
     }
   }
 
+  async function crearAlimento(food: Alimento) {
+    setEstado((s) => ({ ...s, foods: [...(s.foods ?? []), food] }));
+    try {
+      await enviar(pin!, { action: "food-add", food });
+    } catch (e) {
+      manejarError(e);
+      recargar();
+    }
+  }
+
+  async function borrarAlimento(id: string) {
+    setEstado((s) => ({ ...s, foods: (s.foods ?? []).filter((f) => f.id !== id) }));
+    try {
+      await enviar(pin!, { action: "food-del", id });
+    } catch (e) {
+      manejarError(e);
+      recargar();
+    }
+  }
+
   const abrirFoto: AbrirFoto = (slot, conCamara = true) => {
     const s = slot ?? (fecha === hoy ? slotPorHora() : "almuerzo");
     if (conCamara) {
@@ -238,6 +259,9 @@ export default function App() {
           onCerrar={() => setHoja(null)}
           onGuardar={registrar}
           onError={manejarError}
+          propios={estado.foods ?? []}
+          onCrearAlimento={crearAlimento}
+          onBorrarAlimento={borrarAlimento}
         />
       )}
 
